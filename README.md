@@ -1,5 +1,7 @@
 # read-write-local-file-phonegap-ios
 
+**The interesting part is in [app.js](https://github.com/seza443/read-write-local-file-phonegap-ios/blob/master/www/js/app.js)**
+
 Little test app to read and write a local file on iOS and Android using cordova (Phonegap) 
 with the [Ionic framework](http://ionicframework.com/) using the sidemenu placeholder app.
 
