@@ -6,7 +6,7 @@
 // 'starter.controllers' is found in controllers.js
 angular.module('starter', ['ionic', 'starter.controllers', 'ngCordova'])
 
-.run(function($ionicPlatform, $rootScope, $cordovaDevice, $cordovaFile) {
+.run(function($ionicPlatform, $rootScope) {
   $ionicPlatform.ready(function() {
     // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
     // for form inputs)
@@ -17,47 +17,99 @@ angular.module('starter', ['ionic', 'starter.controllers', 'ngCordova'])
       // org.apache.cordova.statusbar required
       StatusBar.styleDefault();
     }
-        
-         window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, fail);
-         
-         function fail(err){
-         	alert("fail");
-         }
-         
-         function gotFS(fs) {
-            fs.root.getFile("test.txt", {create: true, exclusive: false},
-                            gotFileEntry, fail);
-        }
+    $rootScope.profileFileName = "profile.json";
+	$rootScope.profile = { //default profile
+				firstName: "Clark",
+				lastName: "Kent",
+				imageURL: "img/default.png"
+			};
+	$rootScope.fileEntry = null;
+	$rootScope.fileSystem = null;
 
-        function gotFileEntry(fileEntry) {
-			alert("got file entry");
-			alert(fileEntry.toURL());
-            fileEntry.createWriter(gotFileWriter, fail); //write
-            readText(fileEntry); //read
-        }
+	window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, failToGetFileSystem);
+	//On iOS, LocalFileSystem.PERSISTENT is the Documents folder under the private app folder
+	//On Android, we are in the root folder of the sdcard...
+	 
+	function failToGetFileSystem() {
+	    alert("fail to get file system");
+	}
+	 
+	function gotFS(fs) {
+	    $rootScope.fileSystem = fs; //keep the file system accessible
+		 //Here we try to get the file. The exclusive attribute sets to true will cause the method to fail if the file already exists. So I now that I should try to read the profile instead of writting the default profile.
+	     fs.root.getFile($rootScope.profileFileName, { create: true, exclusive: true },
+	                            gotFileEntryForFirstTime, failToGetExclusiveFileEntry);
+	}
+	 
+	/**
+	  * File didn't exist and has just been created so we need to write the profile one time at least.
+	  */
+	function gotFileEntryForFirstTime(fileEntry) {
+	      alert("got file entry for first time");
+	      alert("url : " + fileEntry.toURL());
+	      $rootScope.fileEntry = fileEntry;
+	      $rootScope.saveProfile(function () { alert("profile file written"); }, function () { alert("profile file FAIL written"); });
+	}
+	 
+	$rootScope.saveProfile = function (successFunction, errorFunction) {
+	     if (!$rootScope.fileEntry) {
+	           alert("no file to write in");
+	           return;
+	      }
+	      var contentToWrite = angular.toJson($rootScope.profile); //convert profile to JSON
+	      $rootScope.fileEntry.createWriter(function (fileWriter) {
+	          fileWriter.onwriteend = successFunction;
+	          fileWriter.onerror = errorFunction;
 
-        function gotFileWriter(fileWriter) {
-            alert("got filer writer");
-            saveText(fileWriter);
-        }
-
-        function saveText(fileWritter) {
-                fileWritter.onwriteend = function (evt) {
-						alert("written");
-                }
-                fileWritter.write("hello");
-        }
-
-  		function readText(fe) {
-                fe.file(function (dbFile) {
-                    var reader = new FileReader();
-                    reader.onloadend = function (evt) {
-						alert("read!");
-						alert(evt.target.result);
-                    }
-                    reader.readAsText(dbFile);
-                }, fail);
-            }
+	          fileWriter.write(contentToWrite);
+	      },
+	       errorFunction);
+	}
+	 
+	function failToGetExclusiveFileEntry() {
+	   alert("file maybe exists ?");
+	   $rootScope.fileSystem.root.getFile($rootScope.profileFileName, { create: true, exclusive: false },
+	                   gotFileEntry, failToGetFileEntry);
+	}
+	 
+	function failToGetFileEntry(error) {
+	    alert("fail to get file entry");
+	}
+	 
+	/**
+	  * Got file entry but it already exists so we need to read it.
+	  */
+	function gotFileEntry(fileEntry) {
+	   alert("got file entry");
+	   alert(fileEntry.toURL());
+	   $rootScope.fileEntry = fileEntry;
+	   readProfile();
+	}
+	 
+	function readProfile() {
+	   if (!$rootScope.fileEntry) {
+	     alert("no file to read");
+	     return;
+	   }
+	$rootScope.fileEntry.file(function (profileFile) {
+	  var reader = new FileReader();
+	  reader.onloadend = function (evt) {
+	     alert("read!");
+	     alert(evt.target.result);
+	     if (typeof this.result == 'string') {
+	       $rootScope.profile = JSON.parse(evt.target.result);
+	     }
+	     else {
+	        $rootScope.profile = evt.target.result;
+	     }
+	  }
+	   reader.readAsText(profileFile);
+	  }, failToReadProfileFile);
+	}
+	 
+	function failToReadProfileFile(error) {
+	    alert("fail to readprofile file");
+	}
     
   });
 })
